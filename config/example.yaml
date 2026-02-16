@@ -1,0 +1,95 @@
+# Reticulum Node Manager Configuration
+# =====================================
+
+node:
+  name: "W6EZE-Gateway"
+  callsign: "W6EZE"
+
+# --- Interface Definitions ---
+interfaces:
+
+  # -- VHF/UHF via Direwolf --
+  vhf_uhf:
+    enabled: true
+    type: direwolf
+    audio_device: "plughw:1,0"
+    callsign: "W6EZE-10"
+    modem: 1200
+    ptt:
+      type: serial
+      device: "/dev/ttyUSB0"
+      line: RTS
+    kiss_port: 8001
+    timing:
+      txdelay: 40
+      txtail: 10
+      slottime: 10
+      persist: 63
+    channel: 0
+
+  # -- HF via FreeDV TNC2 --
+  hf:
+    enabled: true
+    type: freedvtnc2
+    input_device: "plughw:2,0"
+    output_device: "plughw:2,0"
+    mode: "DATAC1"
+    ptt:
+      type: rigctld
+      rigctld_host: "127.0.0.1"
+      rigctld_port: 4532
+      rig_model: 1
+      rig_device: "/dev/ttyUSB1"
+      rig_speed: 9600
+    kiss_port: 8002
+    ptt_on_delay_ms: 200
+    ptt_off_delay_ms: 100
+    output_volume: 0
+    follow_mode: false
+    max_packets_combined: 1
+
+# --- Reticulum Configuration ---
+reticulum:
+  enable_transport: true
+  share_instance: true
+  shared_instance_port: 37428
+  instance_control_port: 37429
+  loglevel: 4
+
+  interface_config:
+    vhf_uhf:
+      announce_rate_target: 3600
+      announce_rate_grace: 7200
+    hf:
+      announce_rate_target: 14400
+      announce_rate_grace: 43200
+
+  additional_interfaces:
+    tcp_server:
+      type: TCPServerInterface
+      enabled: true
+      listen_ip: "0.0.0.0"
+      listen_port: 4242
+
+# --- Process Management ---
+process:
+  restart_policy: always
+  restart_delay: 3
+  max_restarts: 10
+  restart_window: 300
+  health_check_interval: 15
+  startup_grace_period: 10
+
+# --- Logging ---
+logging:
+  level: info
+  file: null
+  max_size_mb: 10
+  backup_count: 3
+
+# --- TUI ---
+tui:
+  enabled: true
+  refresh_rate: 1.0
+  show_log_panel: true
+  log_lines: 50

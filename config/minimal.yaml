@@ -1,0 +1,25 @@
+# Minimal VHF-only configuration
+# Use `rnm devices audio` and `rnm devices serial` to find your device names
+
+node:
+  name: "MyNode"
+  callsign: "N0CALL"
+
+interfaces:
+  vhf:
+    enabled: true
+    type: direwolf
+    audio_device: "plughw:1,0"
+    callsign: "N0CALL-10"
+    modem: 1200
+    ptt:
+      type: none
+    kiss_port: 8001
+
+reticulum:
+  enable_transport: true
+  share_instance: true
+  loglevel: 4
+
+tui:
+  enabled: true
