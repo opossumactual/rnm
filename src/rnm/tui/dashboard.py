@@ -62,13 +62,11 @@ ServicePanel #svc-title {
                     parts.append(f"PID {ps.process.pid}")
                 if ps.restart_count > 0:
                     parts.append(f"restarts: {ps.restart_count}")
-                # Show KISS port if it's a TNC service
-                cmd_str = " ".join(ps.service.command)
-                if "--kiss-tcp-port" in cmd_str or "KISSPORT" in cmd_str:
-                    for iface_name, iface in app.config.interfaces.items():
-                        if name.endswith(iface_name):
-                            parts.append(f"KISS:{iface.kiss_port}")
-                            break
+                # Show KISS port for TNC services (direwolf/freedvtnc2)
+                for iface_name, iface in app.config.interfaces.items():
+                    if name.endswith(iface_name) and hasattr(iface, "kiss_port"):
+                        parts.append(f"KISS:{iface.kiss_port}")
+                        break
                 details = "  ".join(parts)
 
         # Check if row exists already — update it, otherwise add
