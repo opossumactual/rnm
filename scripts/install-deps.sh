@@ -111,7 +111,7 @@ if [ -z "$REPO_ROOT" ]; then
     exit 1
 fi
 
-pipx install "$REPO_ROOT"
+pipx install "$REPO_ROOT[tui]"
 echo "  Installed from local repo: $REPO_ROOT"
 
 # ── Verification ──────────────────────────────────────
