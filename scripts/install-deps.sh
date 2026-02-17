@@ -5,6 +5,10 @@
 
 set -e
 
+# Resolve repo root immediately, before any cd commands change the working directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+ORIGINAL_DIR="$(pwd)"
+
 echo "============================================="
 echo " Reticulum Node Manager — Dependency Installer"
 echo " Target: Ubuntu Server 24.04 LTS"
@@ -82,25 +86,17 @@ pipx install rns
 echo ""
 echo "[5/6] Installing Reticulum Node Manager..."
 
-# Find the repo root by searching for pyproject.toml
-# Works whether script is run as: bash scripts/install-deps.sh, ./scripts/install-deps.sh,
-# bash /full/path/to/scripts/install-deps.sh, or even from a different working directory
+# Find the repo root (SCRIPT_DIR was resolved at top of script before any cd)
 REPO_ROOT=""
 
 # Try 1: relative to script location (normal case)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 if [ -f "$SCRIPT_DIR/../pyproject.toml" ]; then
     REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 fi
 
-# Try 2: current working directory (user ran: cd repo && bash scripts/install-deps.sh)
-if [ -z "$REPO_ROOT" ] && [ -f "./pyproject.toml" ]; then
-    REPO_ROOT="$(pwd)"
-fi
-
-# Try 3: parent of current directory
-if [ -z "$REPO_ROOT" ] && [ -f "../pyproject.toml" ]; then
-    REPO_ROOT="$(cd .. && pwd)"
+# Try 2: original working directory (user ran: cd repo && bash scripts/install-deps.sh)
+if [ -z "$REPO_ROOT" ] && [ -f "$ORIGINAL_DIR/pyproject.toml" ]; then
+    REPO_ROOT="$ORIGINAL_DIR"
 fi
 
 if [ -z "$REPO_ROOT" ]; then
