@@ -81,14 +81,42 @@ pipx install rns
 # ── Reticulum Node Manager ───────────────────────────
 echo ""
 echo "[5/6] Installing Reticulum Node Manager..."
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Find the repo root by searching for pyproject.toml
+# Works whether script is run as: bash scripts/install-deps.sh, ./scripts/install-deps.sh,
+# bash /full/path/to/scripts/install-deps.sh, or even from a different working directory
+REPO_ROOT=""
+
+# Try 1: relative to script location (normal case)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 if [ -f "$SCRIPT_DIR/../pyproject.toml" ]; then
     REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-    pipx install "$REPO_ROOT"
-    echo "  Installed from local repo: $REPO_ROOT"
-else
-    pipx install reticulum-node-manager
 fi
+
+# Try 2: current working directory (user ran: cd repo && bash scripts/install-deps.sh)
+if [ -z "$REPO_ROOT" ] && [ -f "./pyproject.toml" ]; then
+    REPO_ROOT="$(pwd)"
+fi
+
+# Try 3: parent of current directory
+if [ -z "$REPO_ROOT" ] && [ -f "../pyproject.toml" ]; then
+    REPO_ROOT="$(cd .. && pwd)"
+fi
+
+if [ -z "$REPO_ROOT" ]; then
+    echo ""
+    echo "  ERROR: Could not find pyproject.toml"
+    echo ""
+    echo "  Make sure you cloned the full repo and run from inside it:"
+    echo "    git clone <repo-url>"
+    echo "    cd rnm"
+    echo "    bash scripts/install-deps.sh"
+    echo ""
+    exit 1
+fi
+
+pipx install "$REPO_ROOT"
+echo "  Installed from local repo: $REPO_ROOT"
 
 # ── Verification ──────────────────────────────────────
 echo ""
