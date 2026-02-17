@@ -13,6 +13,7 @@ from rnm.config.schema import (
     FreeDVInterface,
     FreeDVMode,
     RNMConfig,
+    SerialKISSInterface,
 )
 
 
@@ -84,6 +85,32 @@ class TestFreeDVInterface:
             )
 
 
+class TestSerialKISSInterface:
+    def test_minimal(self):
+        iface = SerialKISSInterface(device="/dev/ttyACM0")
+        assert iface.speed == 9600
+        assert iface.preamble == 150
+        assert iface.txtail == 10
+        assert iface.persistence == 64
+        assert iface.slottime == 20
+        assert iface.flow_control is False
+        assert iface.type == "serial_kiss"
+
+    def test_speed_range(self):
+        with pytest.raises(Exception):
+            SerialKISSInterface(device="/dev/ttyACM0", speed=100)
+        with pytest.raises(Exception):
+            SerialKISSInterface(device="/dev/ttyACM0", speed=200000)
+
+    def test_custom_speed(self):
+        iface = SerialKISSInterface(device="/dev/ttyACM0", speed=38400)
+        assert iface.speed == 38400
+
+    def test_persistence_range(self):
+        with pytest.raises(Exception):
+            SerialKISSInterface(device="/dev/ttyACM0", persistence=256)
+
+
 class TestRNMConfig:
     def test_empty_config(self):
         config = RNMConfig()
@@ -116,6 +143,18 @@ class TestRNMConfig:
         }
         config = RNMConfig(**data)
         assert isinstance(config.interfaces["hf"], FreeDVInterface)
+
+    def test_discriminate_serial_kiss(self):
+        data = {
+            "interfaces": {
+                "ht": {
+                    "type": "serial_kiss",
+                    "device": "/dev/ttyACM0",
+                }
+            }
+        }
+        config = RNMConfig(**data)
+        assert isinstance(config.interfaces["ht"], SerialKISSInterface)
 
     def test_unknown_type_raises(self):
         data = {
@@ -158,6 +197,28 @@ class TestRNMConfig:
         config = RNMConfig(**data)
         assert config.node.callsign == "W6EZE"
         assert len(config.interfaces) == 2
+
+    def test_full_config_with_serial_kiss(self):
+        data = {
+            "node": {"name": "TestNode", "callsign": "W6EZE"},
+            "interfaces": {
+                "vhf": {
+                    "type": "direwolf",
+                    "audio_device": "plughw:1,0",
+                    "callsign": "W6EZE-10",
+                    "ptt": {"type": "none"},
+                },
+                "ht": {
+                    "type": "serial_kiss",
+                    "device": "/dev/ttyACM0",
+                    "speed": 9600,
+                },
+            },
+        }
+        config = RNMConfig(**data)
+        assert len(config.interfaces) == 2
+        assert isinstance(config.interfaces["vhf"], DirewolfInterface)
+        assert isinstance(config.interfaces["ht"], SerialKISSInterface)
 
 
 # --- Loader tests ---
@@ -253,6 +314,35 @@ class TestValidateConfig:
         """), encoding="utf-8")
         issues = validate_config(cfg)
         assert any("conflict" in i.lower() for i in issues)
+
+    def test_validate_serial_device_conflict(self, tmp_path):
+        cfg = tmp_path / "conflict.yaml"
+        cfg.write_text(textwrap.dedent("""\
+            node:
+              callsign: W6EZE
+            interfaces:
+              a:
+                type: serial_kiss
+                device: "/dev/ttyACM0"
+              b:
+                type: serial_kiss
+                device: "/dev/ttyACM0"
+        """), encoding="utf-8")
+        issues = validate_config(cfg)
+        assert any("conflict" in i.lower() for i in issues)
+
+    def test_validate_serial_kiss_valid(self, tmp_path):
+        cfg = tmp_path / "valid_serial.yaml"
+        cfg.write_text(textwrap.dedent("""\
+            node:
+              callsign: W6EZE
+            interfaces:
+              ht:
+                type: serial_kiss
+                device: "/dev/ttyACM0"
+        """), encoding="utf-8")
+        issues = validate_config(cfg)
+        assert len(issues) == 0
 
     def test_validate_missing_file(self, tmp_path):
         issues = validate_config(tmp_path / "nope.yaml")

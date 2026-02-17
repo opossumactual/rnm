@@ -88,6 +88,20 @@ class FreeDVInterface(BaseModel):
     max_packets_combined: int = Field(default=1, ge=1)
 
 
+# --- Serial KISS models ---
+
+class SerialKISSInterface(BaseModel):
+    enabled: bool = True
+    type: Literal["serial_kiss"] = "serial_kiss"
+    device: str                         # e.g. "/dev/ttyACM0" or by-id path
+    speed: int = Field(default=9600, ge=300, le=115200)
+    preamble: int = Field(default=150, ge=0)
+    txtail: int = Field(default=10, ge=0)
+    persistence: int = Field(default=64, ge=0, le=255)
+    slottime: int = Field(default=20, ge=0)
+    flow_control: bool = False
+
+
 # --- Reticulum models ---
 
 class ReticulumInterfaceConfig(BaseModel):
@@ -101,6 +115,7 @@ class ReticulumConfig(BaseModel):
     share_instance: bool = True
     shared_instance_port: int = Field(default=37428, ge=1, le=65535)
     instance_control_port: int = Field(default=37429, ge=1, le=65535)
+    instance_name: Optional[str] = None
     loglevel: int = Field(default=4, ge=0, le=7)
     interface_config: Dict[str, ReticulumInterfaceConfig] = {}
     additional_interfaces: Dict[str, Dict[str, Any]] = {}
@@ -138,7 +153,7 @@ class NodeConfig(BaseModel):
 
 # --- Root config ---
 
-InterfaceType = Union[DirewolfInterface, FreeDVInterface]
+InterfaceType = Union[DirewolfInterface, FreeDVInterface, SerialKISSInterface]
 
 
 class RNMConfig(BaseModel):
@@ -166,10 +181,12 @@ class RNMConfig(BaseModel):
                     parsed[name] = DirewolfInterface(**iface)
                 elif itype == "freedvtnc2":
                     parsed[name] = FreeDVInterface(**iface)
+                elif itype == "serial_kiss":
+                    parsed[name] = SerialKISSInterface(**iface)
                 else:
                     raise ValueError(
                         f"Interface '{name}' has unknown type '{itype}'. "
-                        "Must be 'direwolf' or 'freedvtnc2'."
+                        "Must be 'direwolf', 'freedvtnc2', or 'serial_kiss'."
                     )
             data["interfaces"] = parsed
         return data

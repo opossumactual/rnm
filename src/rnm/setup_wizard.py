@@ -91,12 +91,15 @@ def _new_config() -> dict:
         iface_type = _choose("  Interface type:", [
             ("direwolf", "VHF/UHF via Direwolf (1200/9600 baud packet)"),
             ("freedvtnc2", "HF via FreeDV TNC2 (DATAC1/DATAC3/DATAC4)"),
+            ("serial_kiss", "Serial KISS radio (built-in TNC, e.g. Kenwood TH-D75)"),
         ])
 
         if iface_type == "direwolf":
             name_key, iface = _setup_direwolf(callsign)
-        else:
+        elif iface_type == "freedvtnc2":
             name_key, iface = _setup_freedvtnc2()
+        else:
+            name_key, iface = _setup_serial_kiss()
 
         config["interfaces"][name_key] = iface
         click.echo(f"  Added interface: {name_key}")
@@ -151,7 +154,7 @@ def _edit_config(existing: dict) -> dict:
             return config
 
         iface_name = _choose("Which interface to edit?", [
-            (k, f"{v.get('type', '?')} — KISS port {v.get('kiss_port', '?')}")
+            (k, _iface_summary(v))
             for k, v in interfaces.items()
         ])
 
@@ -160,6 +163,8 @@ def _edit_config(existing: dict) -> dict:
             interfaces[iface_name] = _edit_direwolf(iface)
         elif iface.get("type") == "freedvtnc2":
             interfaces[iface_name] = _edit_freedvtnc2(iface)
+        elif iface.get("type") == "serial_kiss":
+            interfaces[iface_name] = _edit_serial_kiss(iface)
         config["interfaces"] = interfaces
 
     elif section == "reticulum":
@@ -202,12 +207,15 @@ def _add_interface(existing: dict) -> dict:
     iface_type = _choose("  Interface type:", [
         ("direwolf", "VHF/UHF via Direwolf (1200/9600 baud packet)"),
         ("freedvtnc2", "HF via FreeDV TNC2 (DATAC1/DATAC3/DATAC4)"),
+        ("serial_kiss", "Serial KISS radio (built-in TNC, e.g. Kenwood TH-D75)"),
     ])
 
     if iface_type == "direwolf":
         name_key, iface = _setup_direwolf(callsign)
-    else:
+    elif iface_type == "freedvtnc2":
         name_key, iface = _setup_freedvtnc2()
+    else:
+        name_key, iface = _setup_serial_kiss()
 
     # Avoid name collisions
     while name_key in interfaces:
@@ -231,7 +239,7 @@ def _remove_interface(existing: dict) -> dict:
         return config
 
     name = _choose("  Which interface to remove?", [
-        (k, f"{v.get('type', '?')} — KISS port {v.get('kiss_port', '?')}")
+        (k, _iface_summary(v))
         for k, v in interfaces.items()
     ])
 
@@ -448,6 +456,72 @@ def _edit_freedvtnc2(iface: dict) -> dict:
         iface["ptt"] = ptt
 
     return iface
+
+
+def _setup_serial_kiss() -> tuple[str, dict]:
+    """Interactive setup for a serial KISS radio (built-in TNC)."""
+    click.echo()
+    click.echo("  -- Serial KISS Radio Setup --")
+    click.echo()
+
+    name = click.prompt("  Interface name", default="serial_kiss")
+
+    device = _pick_serial_device("  Serial device (e.g. /dev/ttyACM0)")
+    speed = click.prompt("  Serial speed (baud)", default=9600, type=int)
+
+    iface = {
+        "enabled": True,
+        "type": "serial_kiss",
+        "device": device,
+        "speed": speed,
+        "preamble": 150,
+        "txtail": 10,
+        "persistence": 64,
+        "slottime": 20,
+        "flow_control": False,
+    }
+
+    return name, iface
+
+
+def _edit_serial_kiss(iface: dict) -> dict:
+    """Edit an existing serial KISS interface config."""
+    click.echo()
+    click.echo("  -- Edit Serial KISS Interface --")
+    click.echo("  (Press Enter to keep current value)")
+    click.echo()
+
+    iface["device"] = _pick_serial_device(
+        "  Serial device", default=iface.get("device", "")
+    )
+    iface["speed"] = click.prompt(
+        "  Serial speed (baud)", default=iface.get("speed", 9600), type=int,
+    )
+    iface["preamble"] = click.prompt(
+        "  Preamble", default=iface.get("preamble", 150), type=int,
+    )
+    iface["txtail"] = click.prompt(
+        "  TX tail", default=iface.get("txtail", 10), type=int,
+    )
+    iface["persistence"] = click.prompt(
+        "  Persistence (0-255)", default=iface.get("persistence", 64), type=int,
+    )
+    iface["slottime"] = click.prompt(
+        "  Slottime", default=iface.get("slottime", 20), type=int,
+    )
+    iface["flow_control"] = click.confirm(
+        "  Enable flow control?", default=iface.get("flow_control", False),
+    )
+
+    return iface
+
+
+def _iface_summary(v: dict) -> str:
+    """One-line summary of an interface for menu display."""
+    itype = v.get("type", "?")
+    if itype == "serial_kiss":
+        return f"{itype} — device {v.get('device', '?')}"
+    return f"{itype} — KISS port {v.get('kiss_port', '?')}"
 
 
 def _setup_reticulum(interfaces: dict) -> dict:

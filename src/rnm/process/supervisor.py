@@ -103,6 +103,17 @@ class Supervisor:
         (ret_dir / "config").write_text(ret_config, encoding="utf-8")
         logger.info("Wrote %s", ret_dir / "config")
 
+        # Copy transport_identity from user's default Reticulum config so
+        # rnsd shares the same RPC auth key and network identity.
+        import shutil
+
+        user_identity = Path.home() / ".reticulum" / "storage" / "transport_identity"
+        dest_identity = ret_dir / "storage" / "transport_identity"
+        if user_identity.exists():
+            dest_identity.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(user_identity, dest_identity)
+            logger.info("Copied transport_identity from %s", user_identity)
+
     def _dependency_sort(self, services: list[ServiceDefinition]) -> list[ServiceDefinition]:
         """Topological sort of services by depends_on."""
         by_name = {s.name: s for s in services}

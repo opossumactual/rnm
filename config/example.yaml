@@ -48,6 +48,18 @@ interfaces:
     follow_mode: false
     max_packets_combined: 1
 
+  # -- Serial KISS radio (built-in TNC, e.g. Kenwood TH-D75) --
+  # serial_ht:
+  #   enabled: true
+  #   type: serial_kiss
+  #   device: "/dev/ttyACM0"
+  #   speed: 9600
+  #   preamble: 150
+  #   txtail: 10
+  #   persistence: 64
+  #   slottime: 20
+  #   flow_control: false
+
 # --- Reticulum Configuration ---
 reticulum:
   enable_transport: true

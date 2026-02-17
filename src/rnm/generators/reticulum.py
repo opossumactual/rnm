@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from rnm.config.schema import RNMConfig
+from rnm.config.schema import RNMConfig, SerialKISSInterface
 
 
 def generate_reticulum_config(config: RNMConfig) -> str:
@@ -25,14 +25,20 @@ def generate_reticulum_config(config: RNMConfig) -> str:
         f"  share_instance = {str(config.reticulum.share_instance)}",
         f"  shared_instance_port = {config.reticulum.shared_instance_port}",
         f"  instance_control_port = {config.reticulum.instance_control_port}",
+    ]
+
+    if config.reticulum.instance_name:
+        lines.append(f"  instance_name = {config.reticulum.instance_name}")
+
+    lines.extend([
         "",
         "[logging]",
         f"  loglevel = {config.reticulum.loglevel}",
         "",
         "[interfaces]",
-    ]
+    ])
 
-    # Generate TCPClientInterface entries for each enabled TNC
+    # Generate interface entries for each enabled interface
     for iface_name, iface in config.interfaces.items():
         if not iface.enabled:
             continue
@@ -40,15 +46,32 @@ def generate_reticulum_config(config: RNMConfig) -> str:
         rns_name = f"{config.node.name} {iface_name}"
         iface_config = config.reticulum.interface_config.get(iface_name)
 
-        lines.extend([
-            "",
-            f"  [[{rns_name}]]",
-            "    type = TCPClientInterface",
-            "    enabled = yes",
-            "    kiss_framing = True",
-            "    target_host = 127.0.0.1",
-            f"    target_port = {iface.kiss_port}",
-        ])
+        if isinstance(iface, SerialKISSInterface):
+            # Direct serial KISS — Reticulum's native KISSInterface
+            lines.extend([
+                "",
+                f"  [[{rns_name}]]",
+                "    type = KISSInterface",
+                "    enabled = yes",
+                f"    port = {iface.device}",
+                f"    speed = {iface.speed}",
+                f"    preamble = {iface.preamble}",
+                f"    txtail = {iface.txtail}",
+                f"    persistence = {iface.persistence}",
+                f"    slottime = {iface.slottime}",
+                f"    flow_control = {str(iface.flow_control)}",
+            ])
+        else:
+            # Direwolf / FreeDV TNC2 — connect via TCP KISS
+            lines.extend([
+                "",
+                f"  [[{rns_name}]]",
+                "    type = TCPClientInterface",
+                "    enabled = yes",
+                "    kiss_framing = True",
+                "    target_host = 127.0.0.1",
+                f"    target_port = {iface.kiss_port}",
+            ])
 
         if iface_config:
             if iface_config.announce_rate_target is not None:

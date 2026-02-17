@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import time
-from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Vertical
-from textual.widgets import Footer, Header, Static
+from textual.message import Message
+from textual.widgets import Footer, Header
 
 from rnm.config.defaults import GENERATED_CONFIG_DIR
 from rnm.config.schema import RNMConfig
@@ -17,6 +16,16 @@ from rnm.process.supervisor import Supervisor
 from rnm.tui.dashboard import ServicePanel
 from rnm.tui.log_viewer import LogPanel
 from rnm.tui.status_bar import NodeInfoBar
+
+
+class SupervisorEvent(Message):
+    """Message posted from supervisor worker to main thread."""
+
+    def __init__(self, event: str, name: str, detail: object = None) -> None:
+        super().__init__()
+        self.event = event
+        self.name = name
+        self.detail = detail
 
 
 class RNMApp(App):
@@ -81,7 +90,7 @@ Screen {
         self.supervisor.on_event(self._handle_event)
 
         log = self.query_one("#log-panel", LogPanel)
-        log.write_line(f"[bold]Reticulum Node Manager v0.1.0[/bold]")
+        log.write_line("[bold]Reticulum Node Manager v0.1.0[/bold]")
         log.write_line(f"Node: {self.config.node.name} ({self.config.node.callsign})")
         log.write_line("")
 
@@ -97,7 +106,15 @@ Screen {
             log.write_line(f"[bold red]Supervisor error: {e}[/bold red]")
 
     def _handle_event(self, event: str, name: str, detail: object = None) -> None:
-        """Handle events from the supervisor and update the UI."""
+        """Forward supervisor events to the main thread via Textual messages."""
+        self.post_message(SupervisorEvent(event, name, detail))
+
+    def on_supervisor_event(self, message: SupervisorEvent) -> None:
+        """Process supervisor events on the main thread."""
+        event = message.event
+        name = message.name
+        detail = message.detail
+
         try:
             svc_panel = self.query_one("#services-panel", ServicePanel)
             log = self.query_one("#log-panel", LogPanel)
@@ -164,7 +181,11 @@ Screen {
         log.write_line(f"  Callsign: {self.config.node.callsign}")
         for iface_name, iface in self.config.interfaces.items():
             status = "enabled" if iface.enabled else "disabled"
-            log.write_line(f"  Interface {iface_name}: {iface.type} ({status}) KISS:{iface.kiss_port}")
+            if hasattr(iface, "kiss_port"):
+                detail = f"KISS:{iface.kiss_port}"
+            else:
+                detail = f"device:{iface.device}"
+            log.write_line(f"  Interface {iface_name}: {iface.type} ({status}) {detail}")
         log.write_line("")
 
     async def action_quit_app(self) -> None:

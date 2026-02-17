@@ -35,7 +35,9 @@ ServicePanel #svc-title {
         table = self.query_one("#svc-table", DataTable)
         table.cursor_type = "none"
         table.zebra_stripes = True
-        table.add_columns("Service", "Status", "Details")
+        table.add_column("Service", key="service")
+        table.add_column("Status", key="status")
+        table.add_column("Details", key="details")
 
     def update_service(self, name: str, state: str) -> None:
         """Update or add a service row in the table."""
@@ -69,14 +71,13 @@ ServicePanel #svc-title {
                         break
                 details = "  ".join(parts)
 
-        # Check if row exists already — update it, otherwise add
+        # Update existing row or add new one
         display_name = _format_service_name(name)
-        try:
-            row_key = name
-            table.update_cell(row_key, "Status", status_text)
-            table.update_cell(row_key, "Details", details)
-        except Exception:
-            # Row doesn't exist yet, add it
+        row_key = name
+        if row_key in table._row_locations:
+            table.update_cell(row_key, "status", status_text)
+            table.update_cell(row_key, "details", details)
+        else:
             table.add_row(display_name, status_text, details, key=name)
 
 

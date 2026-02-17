@@ -10,6 +10,7 @@ from rnm.config.schema import (
     DirewolfInterface,
     FreeDVInterface,
     RNMConfig,
+    SerialKISSInterface,
 )
 from rnm.generators.direwolf import generate_direwolf_conf
 from rnm.generators.freedvtnc2 import build_freedvtnc2_args, build_rigctld_args
@@ -100,6 +101,10 @@ def build_services(config: RNMConfig, generated_dir: str) -> list[ServiceDefinit
                 depends_on=deps,
             ))
             tnc_names.append(f"freedvtnc2_{iface_name}")
+
+        elif isinstance(iface, SerialKISSInterface):
+            # Serial KISS — no external process needed, Reticulum handles it directly
+            pass
 
     # 4. rnsd (depends on all TNCs being up)
     reticulum_config_dir = f"{generated_dir}/reticulum"

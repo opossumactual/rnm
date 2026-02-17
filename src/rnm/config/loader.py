@@ -8,7 +8,7 @@ import yaml
 from pydantic import ValidationError
 
 from rnm.config.defaults import DEFAULT_CONFIG_PATH
-from rnm.config.schema import RNMConfig
+from rnm.config.schema import RNMConfig, SerialKISSInterface
 
 
 class ConfigError(Exception):
@@ -94,16 +94,25 @@ def validate_config(path: str | Path | None = None) -> list[str]:
 
     # Semantic checks beyond Pydantic validation
     kiss_ports: dict[int, str] = {}
+    serial_devices: dict[str, str] = {}
     for name, iface in config.interfaces.items():
         if not iface.enabled:
             continue
-        port = iface.kiss_port
-        if port in kiss_ports:
-            issues.append(
-                f"Interface '{name}' KISS port {port} conflicts with "
-                f"interface '{kiss_ports[port]}'"
-            )
-        kiss_ports[port] = name
+        if isinstance(iface, SerialKISSInterface):
+            if iface.device in serial_devices:
+                issues.append(
+                    f"Interface '{name}' serial device '{iface.device}' conflicts with "
+                    f"interface '{serial_devices[iface.device]}'"
+                )
+            serial_devices[iface.device] = name
+        elif hasattr(iface, "kiss_port"):
+            port = iface.kiss_port
+            if port in kiss_ports:
+                issues.append(
+                    f"Interface '{name}' KISS port {port} conflicts with "
+                    f"interface '{kiss_ports[port]}'"
+                )
+            kiss_ports[port] = name
 
     if config.node.callsign == "N0CALL":
         issues.append("node.callsign is still the default 'N0CALL' -- set your callsign")

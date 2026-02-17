@@ -147,3 +147,56 @@ class TestBuildServices:
         rnsd = next(s for s in services if s.name == "rnsd")
         assert "--config" in rnsd.command
         assert "/tmp/rnm-test/reticulum" in rnsd.command
+
+    def test_serial_kiss_no_service(self):
+        config = self._make_config(
+            interfaces={
+                "ht": {
+                    "type": "serial_kiss",
+                    "device": "/dev/ttyACM0",
+                }
+            }
+        )
+        services = build_services(config, "/tmp/rnm-test")
+        names = [s.name for s in services]
+        # No TNC service for serial_kiss — only rnsd
+        assert names == ["rnsd"]
+
+    def test_serial_kiss_only_rnsd(self):
+        config = self._make_config(
+            interfaces={
+                "ht": {
+                    "type": "serial_kiss",
+                    "device": "/dev/ttyACM0",
+                }
+            }
+        )
+        services = build_services(config, "/tmp/rnm-test")
+        rnsd = next(s for s in services if s.name == "rnsd")
+        # rnsd should have no TNC dependencies
+        assert rnsd.depends_on == []
+
+    def test_serial_kiss_with_direwolf(self):
+        config = self._make_config(
+            interfaces={
+                "vhf": {
+                    "type": "direwolf",
+                    "audio_device": "hw:0",
+                    "callsign": "TEST",
+                    "ptt": {"type": "none"},
+                },
+                "ht": {
+                    "type": "serial_kiss",
+                    "device": "/dev/ttyACM0",
+                },
+            }
+        )
+        services = build_services(config, "/tmp/rnm-test")
+        names = [s.name for s in services]
+        # Direwolf creates a service, serial_kiss does not
+        assert "direwolf_vhf" in names
+        assert "rnsd" in names
+        assert len(names) == 2
+        # rnsd depends on direwolf but NOT on serial_kiss
+        rnsd = next(s for s in services if s.name == "rnsd")
+        assert "direwolf_vhf" in rnsd.depends_on

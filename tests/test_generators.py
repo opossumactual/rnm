@@ -314,3 +314,86 @@ class TestReticulumGenerator:
         out = generate_reticulum_config(config)
         assert "share_instance = True" in out
         assert "shared_instance_port = 37428" in out
+
+
+class TestSerialKISSReticulumGenerator:
+    def _make_config(self, **overrides) -> RNMConfig:
+        data = {
+            "node": {"name": "TestNode", "callsign": "W6EZE"},
+            "interfaces": {
+                "ht": {
+                    "type": "serial_kiss",
+                    "device": "/dev/ttyACM0",
+                },
+            },
+        }
+        data.update(overrides)
+        return RNMConfig(**data)
+
+    def test_serial_kiss_generates_kiss_interface(self):
+        config = self._make_config()
+        out = generate_reticulum_config(config)
+        assert "[[TestNode ht]]" in out
+        assert "type = KISSInterface" in out
+        assert "port = /dev/ttyACM0" in out
+        assert "speed = 9600" in out
+        assert "preamble = 150" in out
+        assert "txtail = 10" in out
+        assert "persistence = 64" in out
+        assert "slottime = 20" in out
+        assert "flow_control = False" in out
+        # Should NOT contain TCPClientInterface fields
+        assert "target_host" not in out
+        assert "kiss_framing" not in out
+
+    def test_serial_kiss_with_custom_speed(self):
+        config = self._make_config(
+            interfaces={
+                "ht": {
+                    "type": "serial_kiss",
+                    "device": "/dev/ttyACM0",
+                    "speed": 38400,
+                },
+            }
+        )
+        out = generate_reticulum_config(config)
+        assert "speed = 38400" in out
+
+    def test_mixed_interfaces(self):
+        config = self._make_config(
+            interfaces={
+                "vhf": {
+                    "type": "direwolf",
+                    "audio_device": "plughw:1,0",
+                    "callsign": "W6EZE-10",
+                    "kiss_port": 8001,
+                    "ptt": {"type": "none"},
+                },
+                "ht": {
+                    "type": "serial_kiss",
+                    "device": "/dev/ttyACM0",
+                },
+            }
+        )
+        out = generate_reticulum_config(config)
+        # Direwolf gets TCPClientInterface
+        assert "type = TCPClientInterface" in out
+        assert "target_port = 8001" in out
+        # Serial KISS gets KISSInterface
+        assert "type = KISSInterface" in out
+        assert "port = /dev/ttyACM0" in out
+
+    def test_serial_kiss_with_announce_rate(self):
+        config = self._make_config(
+            reticulum={
+                "interface_config": {
+                    "ht": {
+                        "announce_rate_target": 3600,
+                        "announce_rate_grace": 7200,
+                    }
+                }
+            }
+        )
+        out = generate_reticulum_config(config)
+        assert "announce_rate_target = 3600" in out
+        assert "announce_rate_grace = 7200" in out
